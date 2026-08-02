@@ -336,6 +336,29 @@ export class Visual implements IVisual {
         return dyn || vc.source.format || "#,0";
     }
 
+    /** Runs the real wrapText algorithm on a throwaway, invisible text element to count how many
+     * lines a label will actually wrap to under the current font/width settings, without touching
+     * the visible DOM. Used to size the axis margin to the real content instead of a worst-case
+     * guess - a chart with short category names (single letters, short codes) shouldn't reserve
+     * blank space sized for labels that wrap to 3 lines when nothing here ever will. */
+    private measureMaxWrapLines(labels: string[], maxWidth: number, fontSize: number, fontFamily: string): number {
+        if (labels.length === 0) return 1;
+        const probe = this.svg.append("text")
+            .attr("font-size", fontSize)
+            .attr("font-family", fontFamily)
+            .attr("opacity", 0)
+            .attr("x", -9999).attr("y", -9999);
+        let maxLines = 1;
+        labels.forEach(label => {
+            probe.text(label);
+            this.wrapText(probe as any, maxWidth);
+            const lineCount = probe.selectAll("tspan").size() || 1;
+            maxLines = Math.max(maxLines, lineCount);
+        });
+        probe.remove();
+        return maxLines;
+    }
+
     // d3's standard SVG text-wrap routine (breaks on spaces, adds tspans) — used for the category
     // axis so long KPI/pillar names don't get clipped or forced into an unreadable rotation.
     private wrapText(selection: d3.Selection<SVGTextElement, unknown, any, any>, width: number): void {
@@ -679,12 +702,23 @@ export class Visual implements IVisual {
         const axisPadding = fmt.categoryAxisCard.axisLabelPadding.value;
         const axisTickPadding = fmt.categoryAxisCard.axisTickPadding.value;
         const axisFontSize = fmt.categoryAxisCard.axisFontSize.value;
+        const axisFontFamilyForMeasure = fmt.categoryAxisCard.axisFontFamily.value.value as string || "Segoe UI";
+
+        // How many lines the actual category labels will really wrap to, given the current
+        // width/font settings — not a flat worst-case guess. Only matters in vertical + wrap mode;
+        // horizontal mode's axis width already comes from axisMaxWidth directly, and non-wrap
+        // (rotated) mode doesn't multi-line at all.
+        const actualWrapLines = (!isHorizontal && axisWrap)
+            ? this.measureMaxWrapLines(data.map(d => d.displayName), axisMaxWidth, axisFontSize, axisFontFamilyForMeasure)
+            : 1;
 
         const margin = isHorizontal
             ? { top: 15, right: calloutOn ? 110 + maxCalloutLevel * 90 : 60, bottom: 20, left: axisMaxWidth + axisPadding + axisTickPadding + 10 }
             : {
                 top: calloutOn ? 55 + maxCalloutLevel * 38 : 20, right: 20,
-                bottom: axisWrap ? (axisFontSize * 3.3 + axisPadding + axisTickPadding + 10) : (axisFontSize * 2 + axisPadding + axisTickPadding + 30),
+                bottom: axisWrap
+                    ? (axisFontSize * 1.1 * actualWrapLines + axisPadding + axisTickPadding + 10)
+                    : (axisFontSize * 2 + axisPadding + axisTickPadding + 30),
                 left: 20
             };
         const width = Math.max(50, viewport.width - margin.left - margin.right);
