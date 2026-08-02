@@ -1,0 +1,30 @@
+{
+  "name": "waterfall-bridge",
+  "description": "Waterfall Bridge - configurable pillar + top-N breakdown waterfall chart",
+  "version": "1.0.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sergiopbi/WaterfallBridge.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "pbiviz": "pbiviz",
+    "start": "pbiviz start",
+    "package": "pbiviz package",
+    "lint": "npx eslint .",
+    "eslint": "npx eslint . --ext .js,.jsx,.ts,.tsx"
+  },
+  "dependencies": {
+    "powerbi-visuals-api": "5.11.1"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "d3": "^7.9.0",
+    "eslint": "^9.11.1",
+    "eslint-plugin-powerbi-visuals": "^1.0.0",
+    "powerbi-visuals-utils-formattingmodel": "^7.1.0",
+    "powerbi-visuals-utils-formattingutils": "^6.1.2",
+    "typescript": "5.5.4"
+  }
+}

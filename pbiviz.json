@@ -1,0 +1,29 @@
+{
+    "visual": {
+        "name": "waterfallBridge",
+        "displayName": "WaterfallBridge",
+        "guid": "waterfallBridgeAC398B1E78C9447BA91CBACC9C0653DD",
+        "visualClassName": "Visual",
+        "version": "1.0.0.0",
+        "description": "Waterfall Bridge - configurable pillar + top-N breakdown waterfall chart",
+        "supportUrl": "https://github.com/sergiopbi/WaterfallBridge/issues",
+        "gitHubUrl": ""
+    },
+    "apiVersion": "5.11.1",
+    "author": {
+        "name": "Sergio",
+        "email": "borisroncattov10@hotmail.com"
+    },
+    "assets": {
+        "icon": "assets/icon.png"
+    },
+    "externalJS": null,
+    "style": "style/visual.less",
+    "capabilities": "capabilities.json",
+    "dependencies": null,
+    "stringResources": [
+        "stringResources/en-US/resources.resjson",
+        "stringResources/pt-PT/resources.resjson"
+    ],
+    "version": "1.0.0.0"
+}
