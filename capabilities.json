@@ -1181,5 +1181,7 @@
     "privileges": [],
     "sorting": {
         "default": {}
-    }
+    },
+    "supportsMultiVisualSelection": true,
+    "supportsKeyboardFocus": true
 }

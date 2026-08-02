@@ -32,6 +32,11 @@ interface PillarDatum {
     start: number;
     end: number;
     sentiment: "increase" | "decrease" | "total" | "others";
+    /** Real per-row selection identities for breakdown segments (one per underlying category row;
+     * more than one for the "Others" bucket, which aggregates several rows). Empty for regular
+     * pillars/totals, which are bound to a measure rather than a data row and have no natural
+     * per-mark identity to select. */
+    selectionIds: powerbi.visuals.ISelectionId[];
 }
 
 /**
@@ -393,7 +398,7 @@ export class Visual implements IVisual {
     // Builds the chained delta bars for one breakdown segment, continuing the running cumulative
     // from `runningStart` — this replaces a single anchor pillar in the main sequence.
     private buildBreakdownBars(
-        items: { name: string; rawValue: number }[], formatStr: string, isSubtraction: boolean, runningStart: number,
+        items: { name: string; rawValue: number; selectionId: powerbi.visuals.ISelectionId }[], formatStr: string, isSubtraction: boolean, runningStart: number,
         manualVisible: boolean[] | null = null
     ): PillarDatum[] {
         const fmt = this.formattingSettings;
@@ -401,6 +406,7 @@ export class Visual implements IVisual {
 
         let shown: typeof withEffective;
         let othersRawSum = 0, othersEffSum = 0, othersCount = 0;
+        let othersSelectionIds: powerbi.visuals.ISelectionId[] = [];
 
         if (manualVisible) {
             // Manual mode: whatever the user picked stays in its original order; everything else
@@ -410,6 +416,7 @@ export class Visual implements IVisual {
             othersRawSum = rest.reduce((s, it) => s + it.rawValue, 0);
             othersEffSum = rest.reduce((s, it) => s + it.effectiveValue, 0);
             othersCount = rest.length;
+            othersSelectionIds = rest.map(it => it.selectionId);
         } else {
             const barCount = Math.max(2, Math.round(fmt.breakdownCard.breakdownBarCount.value));
             const sorted = [...withEffective].sort((a, b) => Math.abs(b.effectiveValue) - Math.abs(a.effectiveValue));
@@ -420,6 +427,7 @@ export class Visual implements IVisual {
                 othersRawSum = rest.reduce((s, it) => s + it.rawValue, 0);
                 othersEffSum = rest.reduce((s, it) => s + it.effectiveValue, 0);
                 othersCount = rest.length;
+                othersSelectionIds = rest.map(it => it.selectionId);
             }
         }
 
@@ -433,7 +441,8 @@ export class Visual implements IVisual {
                 rawValue: it.rawValue, formatStr,
                 isTotal: false, isSubtraction, isOthers: false, othersCount: 0,
                 effectiveValue: it.effectiveValue,
-                start, end, sentiment: it.effectiveValue >= 0 ? "increase" : "decrease"
+                start, end, sentiment: it.effectiveValue >= 0 ? "increase" : "decrease",
+                selectionIds: [it.selectionId]
             });
         });
         if (othersCount > 0) {
@@ -444,7 +453,8 @@ export class Visual implements IVisual {
                 rawValue: othersRawSum, formatStr,
                 isTotal: false, isSubtraction: false, isOthers: true, othersCount,
                 effectiveValue: othersEffSum,
-                start, end, sentiment: "others"
+                start, end, sentiment: "others",
+                selectionIds: othersSelectionIds
             });
         }
         return result;
@@ -528,21 +538,24 @@ export class Visual implements IVisual {
             const totalEndRaw = collapsedRawValue(vc2);
             const formatStr = this.getDynamicFormat(vc2);
             const items = (categoryNames as string[]).map((name, idx) => ({
-                name, rawValue: (Number(vc2.values[idx]) || 0) - (Number(vc1.values[idx]) || 0)
+                name, rawValue: (Number(vc2.values[idx]) || 0) - (Number(vc1.values[idx]) || 0),
+                selectionId: this.host.createSelectionIdBuilder().withCategory(catCol as powerbi.DataViewCategoryColumn, idx).createSelectionId()
             }));
             const bars = this.buildBreakdownBars(items, formatStr, false, totalStartRaw, manualVisible);
             visibleResult.push({
                 displayName: vc1.source.displayName, queryName: `${vc1.source.queryName}__total`,
                 rawValue: totalStartRaw, formatStr: this.getDynamicFormat(vc1),
                 isTotal: true, isSubtraction: false, isOthers: false, othersCount: 0,
-                effectiveValue: totalStartRaw, start: 0, end: totalStartRaw, sentiment: "total"
+                effectiveValue: totalStartRaw, start: 0, end: totalStartRaw, sentiment: "total",
+                selectionIds: []
             });
             visibleResult.push(...bars);
             visibleResult.push({
                 displayName: vc2.source.displayName, queryName: `${vc2.source.queryName}__total`,
                 rawValue: totalEndRaw, formatStr,
                 isTotal: true, isSubtraction: false, isOthers: false, othersCount: 0,
-                effectiveValue: totalEndRaw, start: 0, end: totalEndRaw, sentiment: "total"
+                effectiveValue: totalEndRaw, start: 0, end: totalEndRaw, sentiment: "total",
+                selectionIds: []
             });
             running = totalEndRaw;
         }
@@ -557,7 +570,10 @@ export class Visual implements IVisual {
             const isThisTheAnchor = mode === "singleAuto" && i === singleAnchorIdx;
 
             if (isThisTheAnchor) {
-                const items = (categoryNames as string[]).map((name, idx) => ({ name, rawValue: Number(vc.values[idx]) || 0 }));
+                const items = (categoryNames as string[]).map((name, idx) => ({
+                    name, rawValue: Number(vc.values[idx]) || 0,
+                    selectionId: this.host.createSelectionIdBuilder().withCategory(catCol as powerbi.DataViewCategoryColumn, idx).createSelectionId()
+                }));
                 const forwardBars = this.buildBreakdownBars(items, this.getDynamicFormat(vc), isSubtraction, running, manualVisible);
                 const forwardEnd = forwardBars.length > 0 ? forwardBars[forwardBars.length - 1].end : running;
 
@@ -583,7 +599,8 @@ export class Visual implements IVisual {
                     displayName: vc.source.displayName, queryName: `${vc.source.queryName}__total`,
                     rawValue: totalRaw, formatStr: this.getDynamicFormat(vc),
                     isTotal: true, isSubtraction: false, isOthers: false, othersCount: 0,
-                    effectiveValue: totalRaw, start: 0, end: totalRaw, sentiment: "total"
+                    effectiveValue: totalRaw, start: 0, end: totalRaw, sentiment: "total",
+                    selectionIds: []
                 };
 
                 if (showTotal && totalPosition === "left") visibleResult.push(totalDatum, ...forwardBars);
@@ -618,7 +635,7 @@ export class Visual implements IVisual {
                 queryName: vc.source.queryName,
                 rawValue, formatStr: this.getDynamicFormat(vc),
                 isTotal, isSubtraction, isOthers: false, othersCount: 0, effectiveValue,
-                start, end, sentiment
+                start, end, sentiment, selectionIds: []
             });
         });
 
@@ -636,7 +653,7 @@ export class Visual implements IVisual {
                 rawValue: othersSum, formatStr: othersFormat || "#,0",
                 isTotal: false, isSubtraction: false, isOthers: true, othersCount,
                 effectiveValue: othersSum,
-                start, end, sentiment: "others"
+                start, end, sentiment: "others", selectionIds: []
             });
         }
 
@@ -648,14 +665,14 @@ export class Visual implements IVisual {
 
         if (!dataView?.categorical?.values || dataView.categorical.values.length === 0) {
             this.svg.append("text").attr("x", 10).attr("y", 20).attr("font-size", "12px")
-                .text("Arrasta pelo menos uma medida para \"Pillars\".");
+                .text("Drag at least one measure into \"Pillars\".");
             return;
         }
 
         const data = this.buildPillarData(dataView);
         if (data.length === 0) {
             this.svg.append("text").attr("x", 10).attr("y", 20).attr("font-size", "12px")
-                .text("Todos os pilares estão ocultos (Visible = off).");
+                .text("All pillars are hidden (Visible = off).");
             return;
         }
 
@@ -968,7 +985,7 @@ export class Visual implements IVisual {
             if (d.isOthers) {
                 return [
                     { displayName: d.displayName, value: this.formatValue(d.effectiveValue, d.formatStr) },
-                    { displayName: "Pilares ocultos agregados", value: String(d.othersCount) }
+                    { displayName: "Hidden pillars aggregated", value: String(d.othersCount) }
                 ];
             }
             if (d.isTotal) {
@@ -979,8 +996,8 @@ export class Visual implements IVisual {
             ];
             if (d.isSubtraction) {
                 items.push({
-                    displayName: "Valor original",
-                    value: `${this.formatValue(d.rawValue, d.formatStr)} (subtração aplicada)`
+                    displayName: "Original value",
+                    value: `${this.formatValue(d.rawValue, d.formatStr)} (subtraction applied)`
                 });
             }
             return items;
@@ -990,17 +1007,68 @@ export class Visual implements IVisual {
             .on("mouseover", (event: MouseEvent, d: PillarDatum) => {
                 if (this.host.hostCapabilities.allowInteractions === false) return;
                 this.host.tooltipService.show({
-                    coordinates: [event.clientX, event.clientY], isTouchEvent: false, dataItems: tooltipItems(d), identities: []
+                    coordinates: [event.clientX, event.clientY], isTouchEvent: false, dataItems: tooltipItems(d), identities: d.selectionIds
                 });
             })
             .on("mousemove", (event: MouseEvent, d: PillarDatum) => {
                 if (this.host.hostCapabilities.allowInteractions === false) return;
                 this.host.tooltipService.move({
-                    coordinates: [event.clientX, event.clientY], isTouchEvent: false, dataItems: tooltipItems(d), identities: []
+                    coordinates: [event.clientX, event.clientY], isTouchEvent: false, dataItems: tooltipItems(d), identities: d.selectionIds
                 });
             })
             .on("mouseleave", () => {
                 this.host.tooltipService.hide({ immediately: true, isTouchEvent: false });
+            });
+
+        // Cross-filtering: only breakdown segments carry real per-row selectionIds (pillars/totals
+        // are measure-bound, no natural per-row identity to select by - see PillarDatum). Clicking
+        // one of those segments (including "Others", whose selectionIds cover every row folded into
+        // it) selects/deselects it and cross-filters the rest of the report, same as a native
+        // category chart. Bars with no selectionIds keep their existing tooltip-only behavior.
+        const applySelectionStyles = () => {
+            const selected = this.selectionManager.getSelectionIds() as powerbi.visuals.ISelectionId[];
+            const hasSelection = selected.length > 0;
+            bars.attr("opacity", d => {
+                if (!hasSelection || d.selectionIds.length === 0) return 1;
+                const isSelected = d.selectionIds.some(id => selected.some(s => s.equals(id)));
+                return isSelected ? 1 : 0.35;
+            });
+        };
+        applySelectionStyles();
+
+        // selectionManager.select()'s own "click the same thing again to deselect" behavior only
+        // reliably toggles for a single ISelectionId - it doesn't reliably clear when the ids passed
+        // are a multi-id set (as "Others" always is). Check explicitly instead of relying on that.
+        const toggleSelect = (ids: powerbi.visuals.ISelectionId[], multiSelect: boolean) => {
+            const current = this.selectionManager.getSelectionIds() as powerbi.visuals.ISelectionId[];
+            const isExactCurrentSelection = !multiSelect && current.length === ids.length
+                && ids.every(id => current.some(s => s.equals(id)));
+            const action = isExactCurrentSelection ? this.selectionManager.clear() : this.selectionManager.select(ids, multiSelect);
+            action.then(() => applySelectionStyles());
+        };
+
+        bars.filter(d => d.selectionIds.length > 0)
+            .style("cursor", "pointer")
+            .style("outline", "none") // native visuals don't show the browser's default click-focus ring
+            .attr("tabindex", 0)
+            .attr("role", "button")
+            .attr("aria-label", d => d.displayName)
+            .on("click", (event: MouseEvent, d: PillarDatum) => {
+                if (this.host.hostCapabilities.allowInteractions === false) return;
+                toggleSelect(d.selectionIds, event.ctrlKey || event.metaKey);
+                event.stopPropagation();
+            })
+            .on("keydown", (event: KeyboardEvent, d: PillarDatum) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                if (this.host.hostCapabilities.allowInteractions === false) return;
+                toggleSelect(d.selectionIds, event.ctrlKey || event.metaKey);
+            })
+            .on("contextmenu", (event: MouseEvent, d: PillarDatum) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (this.host.hostCapabilities.allowInteractions === false) return;
+                this.selectionManager.showContextMenu(d.selectionIds[0], { x: event.clientX, y: event.clientY });
             });
 
         // Labels — value shown just beyond the "far" edge (the edge on the higher-value side) for a
