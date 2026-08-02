@@ -325,6 +325,24 @@ class DataLabelsCardSettings extends FormattingSettingsCard {
         value: { value: "outsideEnd", displayName: "Outside end" }
     });
 
+    labelsDecimalsAuto = new formattingSettings.ToggleSwitch({
+        name: "labelsDecimalsAuto",
+        displayName: "Decimal places: auto (from field format)",
+        displayNameKey: "Prop_LabelsDecimalsAuto",
+        value: true
+    });
+
+    labelsDecimals = new formattingSettings.NumUpDown({
+        name: "labelsDecimals",
+        displayName: "Decimal places (when not auto)",
+        displayNameKey: "Prop_LabelsDecimals",
+        value: 0,
+        options: {
+            minValue: { type: 0, value: 0 },
+            maxValue: { type: 1, value: 4 }
+        }
+    });
+
     labelsBackgroundShow = new formattingSettings.ToggleSwitch({
         name: "labelsBackgroundShow",
         displayName: "Show background",
@@ -355,6 +373,7 @@ class DataLabelsCardSettings extends FormattingSettingsCard {
     displayNameKey: string = "Card_DataLabels";
     slices: Array<FormattingSettingsSlice> = [
         this.labelsShow, this.labelsFontSize, this.labelsColor, this.labelsPosition,
+        this.labelsDecimalsAuto, this.labelsDecimals,
         this.labelsBackgroundShow, this.labelsBackgroundColor, this.labelsBackgroundTransparency
     ];
 }
@@ -484,11 +503,33 @@ class CalloutCardSettings extends FormattingSettingsCard {
         value: true
     });
 
+    calloutValueDecimals = new formattingSettings.NumUpDown({
+        name: "calloutValueDecimals",
+        displayName: "Absolute value decimal places",
+        displayNameKey: "Prop_CalloutValueDecimals",
+        value: 0,
+        options: {
+            minValue: { type: 0, value: 0 },
+            maxValue: { type: 1, value: 4 }
+        }
+    });
+
     calloutValueShowPercent = new formattingSettings.ToggleSwitch({
         name: "calloutValueShowPercent",
         displayName: "Show percentage",
         displayNameKey: "Prop_CalloutValueShowPercent",
         value: true
+    });
+
+    calloutPercentDecimals = new formattingSettings.NumUpDown({
+        name: "calloutPercentDecimals",
+        displayName: "Percentage decimal places",
+        displayNameKey: "Prop_CalloutPercentDecimals",
+        value: 1,
+        options: {
+            minValue: { type: 0, value: 0 },
+            maxValue: { type: 1, value: 4 }
+        }
     });
 
     calloutValueAutoColor = new formattingSettings.ToggleSwitch({
@@ -533,7 +574,8 @@ class CalloutCardSettings extends FormattingSettingsCard {
     slices: Array<FormattingSettingsSlice> = [
         this.calloutValuePosition, this.calloutBridgeShow, this.calloutBoxShow,
         this.calloutBridgeAutoColor, this.calloutBridgeColor, this.calloutBridgeWidth, this.calloutBridgeStyle,
-        this.calloutValueShowAbsolute, this.calloutValueShowPercent,
+        this.calloutValueShowAbsolute, this.calloutValueDecimals,
+        this.calloutValueShowPercent, this.calloutPercentDecimals,
         this.calloutValueAutoColor, this.calloutValueColor, this.calloutValueFontSize,
         this.calloutValueBold, this.calloutValueFontFamily
     ];

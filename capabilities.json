@@ -815,6 +815,20 @@
                     },
                     "displayNameKey": "Prop_LabelsPosition"
                 },
+                "labelsDecimalsAuto": {
+                    "displayName": "Decimal places: auto (from field format)",
+                    "displayNameKey": "Prop_LabelsDecimalsAuto",
+                    "type": {
+                        "bool": true
+                    }
+                },
+                "labelsDecimals": {
+                    "displayName": "Decimal places (when not auto)",
+                    "displayNameKey": "Prop_LabelsDecimals",
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "labelsBackgroundShow": {
                     "type": {
                         "bool": true
@@ -1039,11 +1053,25 @@
                     },
                     "displayNameKey": "Prop_CalloutValueShowAbsolute"
                 },
+                "calloutValueDecimals": {
+                    "displayName": "Absolute value decimal places",
+                    "displayNameKey": "Prop_CalloutValueDecimals",
+                    "type": {
+                        "numeric": true
+                    }
+                },
                 "calloutValueShowPercent": {
                     "type": {
                         "bool": true
                     },
                     "displayNameKey": "Prop_CalloutValueShowPercent"
+                },
+                "calloutPercentDecimals": {
+                    "displayName": "Percentage decimal places",
+                    "displayNameKey": "Prop_CalloutPercentDecimals",
+                    "type": {
+                        "numeric": true
+                    }
                 },
                 "calloutValueAutoColor": {
                     "type": {

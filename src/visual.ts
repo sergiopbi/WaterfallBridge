@@ -312,6 +312,24 @@ export class Visual implements IVisual {
         return `${sign}${prefix.trim()}${numStr}${unit}${suffix.trim()}`;
     }
 
+    /** Same prefix/suffix/scale-and-suffix handling as formatValue, but with an explicit decimal
+     * count instead of one parsed out of the field's own format string - used by the callout,
+     * whose absolute-value precision is a visual-level setting independent of the bound field. */
+    private formatValueWithDecimals(rawValue: number, formatStr: string, decimals: number): string {
+        const sections = (formatStr || "#,0").split(";");
+        const positiveSection = sections[0] || "#,0";
+        const negativeSection = sections.length > 1 ? sections[1] : null;
+        const isNeg = rawValue < 0;
+        const section = isNeg && negativeSection ? negativeSection : positiveSection;
+        const { prefix, suffix } = this.parseFormatSection(section);
+        const { scaled, unit } = this.scaleAndSuffix(rawValue);
+        const sign = isNeg && !negativeSection ? "-" : "";
+        const numStr = Math.abs(scaled).toLocaleString(this.locale, {
+            minimumFractionDigits: decimals, maximumFractionDigits: decimals
+        });
+        return `${sign}${prefix.trim()}${numStr}${unit}${suffix.trim()}`;
+    }
+
     private getDynamicFormat(vc: DataViewValueColumn): string {
         const dyn = vc.objects && vc.objects[0] && (vc.objects[0] as any).general
             ? (vc.objects[0] as any).general.formatString : undefined;
@@ -711,11 +729,12 @@ export class Visual implements IVisual {
         const tRawMin = signedPow(domainMin);
         const tRawMax = signedPow(domainMax);
         const tPad = (tRawMax - tRawMin) * 0.12 || 1; // 12% headroom, added in transformed space
-        // Padding on both ends, not just the top: negative-value labels now render below their bar
-        // (see the label positioning below), which needs the same breathing room at the bottom that
-        // positive labels always had at the top - without it, a bar sitting right at the domain
-        // minimum had its label collide with the category axis line/labels.
-        const linScale = d3.scaleLinear().domain([tRawMin - tPad, tRawMax + tPad]).range(isHorizontal ? [0, width] : [height, 0]);
+        // Top padding is unconditional (breathing room for labels/callouts above the tallest bar,
+        // as before). Bottom padding only applies when the data actually dips negative - a
+        // negative-value label now renders below its bar and needs room there, but when nothing is
+        // negative the bars should still sit flush on the axis line, not float above it for no reason.
+        const bottomPad = domainMin < 0 ? tPad : 0;
+        const linScale = d3.scaleLinear().domain([tRawMin - bottomPad, tRawMax + tPad]).range(isHorizontal ? [0, width] : [height, 0]);
         const valueScale = (v: number) => linScale(signedPow(v));
         const tickRefScale = d3.scaleLinear().domain([domainMin, domainMax]);
         const clampToDomain = (v: number) => Math.max(domainMin, Math.min(domainMax, v));
@@ -957,7 +976,11 @@ export class Visual implements IVisual {
         if (fmt.dataLabelsCard.labelsShow.value) {
             const position = fmt.dataLabelsCard.labelsPosition.value.value as string;
             const labelValue = (d: PillarDatum) => d.isTotal ? d.rawValue : d.effectiveValue;
-            const labelText = (d: PillarDatum) => this.formatValue(labelValue(d), d.formatStr);
+            const decimalsAuto = fmt.dataLabelsCard.labelsDecimalsAuto.value;
+            const labelDecimals = Math.max(0, Math.min(4, Math.round(fmt.dataLabelsCard.labelsDecimals.value)));
+            const labelText = (d: PillarDatum) => decimalsAuto
+                ? this.formatValue(labelValue(d), d.formatStr)
+                : this.formatValueWithDecimals(labelValue(d), d.formatStr, labelDecimals);
             const fontSize = fmt.dataLabelsCard.labelsFontSize.value;
 
             const labelGroups = g.selectAll(".pillar-label-g")
@@ -1064,8 +1087,13 @@ export class Visual implements IVisual {
             const { startD, delta, pct, variationColor, bridgeColor, xMid } = callout;
             const showAbs = fmt.calloutCard.calloutValueShowAbsolute.value;
             const showPct = fmt.calloutCard.calloutValueShowPercent.value;
-            const absText = `${delta >= 0 ? "+" : ""}${this.formatValue(delta, startD.formatStr)}`;
-            const pctText = `(${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)`;
+            const valueDecimals = Math.max(0, Math.min(4, Math.round(fmt.calloutCard.calloutValueDecimals.value)));
+            const pctDecimals = Math.max(0, Math.min(4, Math.round(fmt.calloutCard.calloutPercentDecimals.value)));
+            const absText = `${delta >= 0 ? "+" : ""}${this.formatValueWithDecimals(delta, startD.formatStr, valueDecimals)}`;
+            const pctNumStr = Math.abs(pct).toLocaleString(this.locale, {
+                minimumFractionDigits: pctDecimals, maximumFractionDigits: pctDecimals
+            });
+            const pctText = `(${pct >= 0 ? "+" : "-"}${pctNumStr}%)`;
             const valueColor = fmt.calloutCard.calloutValueAutoColor.value ? variationColor : fmt.calloutCard.calloutValueColor.value.value;
             const valueFontSize = fmt.calloutCard.calloutValueFontSize.value;
             const valueFontFamily = fmt.calloutCard.calloutValueFontFamily.value.value as string || "Segoe UI";
