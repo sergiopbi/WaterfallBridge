@@ -4,7 +4,7 @@
         "displayName": "WaterfallBridge",
         "guid": "waterfallBridgeAC398B1E78C9447BA91CBACC9C0653DD",
         "visualClassName": "Visual",
-        "version": "1.0.0.0",
+        "version": "1.0.0.2",
         "description": "Waterfall Bridge - configurable pillar + top-N breakdown waterfall chart",
         "supportUrl": "https://github.com/sergiopbi/WaterfallBridge/issues",
         "gitHubUrl": ""
@@ -25,5 +25,5 @@
         "stringResources/en-US/resources.resjson",
         "stringResources/pt-PT/resources.resjson"
     ],
-    "version": "1.0.0.0"
+    "version": "1.0.0.2"
 }
