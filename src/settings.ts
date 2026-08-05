@@ -27,9 +27,16 @@ class ChartOptionsCardSettings extends FormattingSettingsCard {
         value: { value: "vertical", displayName: "Vertical" }
     });
 
+    compressionAuto = new formattingSettings.ToggleSwitch({
+        name: "compressionAuto",
+        displayName: "Value compression: automatic",
+        displayNameKey: "Prop_CompressionAuto",
+        value: true
+    });
+
     valueCompression = new formattingSettings.NumUpDown({
         name: "valueCompression",
-        displayName: "Value compression (0 = default; can go beyond ±100)",
+        displayName: "Value compression (when not automatic)",
         displayNameKey: "Prop_ValueCompression",
         value: 0,
         options: {
@@ -38,10 +45,23 @@ class ChartOptionsCardSettings extends FormattingSettingsCard {
         }
     });
 
+    minTotalHeightPct = new formattingSettings.NumUpDown({
+        name: "minTotalHeightPct",
+        displayName: "Automatic: minimum total bar height (%)",
+        displayNameKey: "Prop_MinTotalHeightPct",
+        description: "When Automatic value compression floats the axis floor to make small bars visible, Total bars are never allowed to shrink below this % of the chart height — they should still read as \"the total\", not look the same size as a small variation. 0 = no floor (allow full floating); 100 = always keep the true zero baseline.",
+        descriptionKey: "Prop_MinTotalHeightPct_Desc",
+        value: 20,
+        options: {
+            minValue: { type: 0, value: 0 },
+            maxValue: { type: 1, value: 100 }
+        }
+    });
+
     name: string = "chartOptions";
     displayName: string = "Chart Options";
     displayNameKey: string = "Card_ChartOptions";
-    slices: Array<FormattingSettingsSlice> = [this.chartOrientation, this.valueCompression];
+    slices: Array<FormattingSettingsSlice> = [this.chartOrientation, this.compressionAuto, this.valueCompression, this.minTotalHeightPct];
 }
 
 /**
@@ -146,12 +166,28 @@ class BreakdownCardSettings extends FormattingSettingsCard {
         value: { value: "right", displayName: "Right" }
     });
 
+    breakdownSortBy = new formattingSettings.ItemDropdown({
+        name: "breakdownSortBy",
+        displayName: "Sort by",
+        displayNameKey: "Prop_BreakdownSortBy",
+        description: "Which categories make the cut in Auto mode is always decided by impact; this only changes the display order of whichever ones are shown.",
+        descriptionKey: "Prop_BreakdownSortBy_Desc",
+        items: [
+            { value: "impact", displayName: "Impact (default)" },
+            { value: "valueDesc", displayName: "Value (highest first)" },
+            { value: "valueAsc", displayName: "Value (lowest first)" },
+            { value: "nameAsc", displayName: "Name (A-Z)" },
+            { value: "nameDesc", displayName: "Name (Z-A)" }
+        ],
+        value: { value: "impact", displayName: "Impact (default)" }
+    });
+
     name: string = "breakdown";
     displayName: string = "Breakdown";
     displayNameKey: string = "Card_Breakdown";
     slices: Array<FormattingSettingsSlice> = [
         this.breakdownMode, this.breakdownBarCount, this.othersLabel,
-        this.breakdownShowTotal, this.breakdownTotalPosition
+        this.breakdownShowTotal, this.breakdownTotalPosition, this.breakdownSortBy
     ];
 }
 

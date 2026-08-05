@@ -5,7 +5,10 @@
 
     "Card_ChartOptions": "Opções do Gráfico",
     "Prop_ChartOrientation": "Orientação do Gráfico",
-    "Prop_ValueCompression": "Compressão de valores (0 = padrão; pode ir além de \u00b1100)",
+    "Prop_CompressionAuto": "Compressão de valores: automática",
+    "Prop_ValueCompression": "Compressão de valores (quando não automática)",
+    "Prop_MinTotalHeightPct": "Automático: altura mínima da barra de total (%)",
+    "Prop_MinTotalHeightPct_Desc": "Quando a compressão automática desloca o chão do eixo para tornar as barras pequenas visíveis, as barras de Total nunca podem ficar abaixo desta % da altura do gráfico — continuam a ter de parecer \"o total\", não do mesmo tamanho que uma pequena variação. 0 = sem limite (permite deslocação total); 100 = mantém sempre o zero verdadeiro.",
 
     "Card_DataColors": "Cores dos Dados",
     "Prop_SentimentsShow": "Formatar usando Sentimentos",
@@ -25,6 +28,8 @@
     "Prop_OthersLabel": "Rótulo de \"Outros\"",
     "Prop_BreakdownShowTotal": "Mostrar barra de total junto ao detalhe",
     "Prop_BreakdownTotalPosition": "Posição do total",
+    "Prop_BreakdownSortBy": "Ordenar por",
+    "Prop_BreakdownSortBy_Desc": "Quais as categorias que entram no modo Automático é sempre decidido pelo impacto; isto só muda a ordem de exibição das que já estão a ser mostradas.",
 
     "Card_BreakdownCategories": "Categorias de Detalhe",
     "Group_Categories": "Categorias",

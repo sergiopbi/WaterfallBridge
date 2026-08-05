@@ -431,6 +431,14 @@ export class Visual implements IVisual {
             }
         }
 
+        const sortBy = fmt.breakdownCard.breakdownSortBy.value.value as string;
+        if (sortBy === "valueDesc") shown = [...shown].sort((a, b) => b.effectiveValue - a.effectiveValue);
+        else if (sortBy === "valueAsc") shown = [...shown].sort((a, b) => a.effectiveValue - b.effectiveValue);
+        else if (sortBy === "nameAsc") shown = [...shown].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+        else if (sortBy === "nameDesc") shown = [...shown].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: "base" }));
+        // "impact" (default): leave as-is — Auto mode already sorted by impact above; Manual mode
+        // keeps the user's own pick order, which is the closest match "impact" has in that mode.
+
         let running = runningStart;
         const result: PillarDatum[] = [];
         shown.forEach(it => {
@@ -761,21 +769,110 @@ export class Visual implements IVisual {
         // pixel gap once passed through a strong compression curve (a small raw gap near a very large
         // value explodes after exponentiation) — that's what was eating half the chart under extreme
         // negative compression.
-        const domainMin = vMin, domainMax = vMax;
+        const domainMin0 = vMin, domainMax = vMax;
+        let domainMin = domainMin0;
 
         // Single unified "value compression" control (0 = today's plain linear look, can go well
-        // beyond ±100 — the curve just keeps getting more extreme, asymptotically, it never breaks).
-        // Positive: a signed power curve (gamma < 1) that compresses values far from zero relative
-        // to values near zero — squeezes the tall/far end of the cascade, gives more room to
-        // whatever sits close to zero. Negative: the mirror curve (gamma > 1) — expands the far end
-        // instead, compressing what's near zero. Which direction actually helps depends on where in
-        // the cascade your small deltas happen to sit — that's exactly why it's a signed dial rather
-        // than a single "more compression" checkbox. Gamma is computed exponentially (not linearly)
-        // specifically so it can never hit zero or go negative, however far the dial is pushed —
-        // a linear formula would eventually invert the whole scale's ordering.
-        const compression = Math.max(-300, Math.min(300, fmt.chartOptionsCard.valueCompression.value));
-        const t = compression / 100;
-        const gamma = t >= 0 ? Math.exp(-t * 1.05) : Math.exp(-t * 0.92);
+        // beyond ±100). Positive: a signed power curve (gamma < 1) that compresses values far from
+        // zero relative to values near zero — squeezes the tall/far end of the cascade, gives more
+        // room to whatever sits close to zero. Negative: the mirror curve (gamma > 1) — expands the
+        // far end instead, compressing what's near zero. Which direction actually helps depends on
+        // where in the cascade your small deltas happen to sit — that's exactly why it's a signed
+        // dial rather than a single "more compression" checkbox.
+        // Gamma is clamped to [0.15, 4] - confirmed with real multi-million-scale data that letting
+        // it go much further (the old constants reached gamma≈15.8 at compression=-300) raises large
+        // values to such an extreme power that the ratio between bars explodes past what a shared
+        // linear scale can represent - smaller bars collapse to sub-pixel height and disappear
+        // entirely, even though their axis labels still render (their position math never fails,
+        // only their height does). The clamp guarantees the whole dial stays usable end to end.
+        let gamma: number;
+        if (fmt.chartOptionsCard.compressionAuto.value) {
+            // Automatic: search for the gentlest gamma (closest to 1, i.e. least distortion from a
+            // plain linear chart) that still gets the smallest real bar up to a minimum visible pixel
+            // height. Reuses the actual transform pipeline per candidate rather than an approximate
+            // formula, since a bar's rendered height depends on the local slope of the power curve at
+            // its own position in the cascade, not just its raw height on its own.
+            const heights = data.map(d => Math.abs(d.end - d.start)).filter(h => h > 0);
+            const minH = heights.length ? Math.min(...heights) : 0;
+            const maxH = heights.length ? Math.max(...heights) : 0;
+            const targetPx = 6;
+            const smallestBarPx = (g: number): number => {
+                const sp = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), g);
+                const rMin = sp(domainMin), rMax = sp(domainMax);
+                const pad = (rMax - rMin) * 0.12 || 1;
+                const bPad = domainMin < 0 ? pad : 0;
+                const ls = d3.scaleLinear().domain([rMin - bPad, rMax + pad]).range([0, height]);
+                let worst = Infinity;
+                for (const d of data) {
+                    if (Math.abs(d.end - d.start) <= 0) continue;
+                    const y1 = ls(sp(Math.max(d.start, d.end)));
+                    const y2 = ls(sp(Math.min(d.start, d.end)));
+                    worst = Math.min(worst, Math.abs(y1 - y2));
+                }
+                return worst;
+            };
+            if (heights.length < 2 || maxH / minH < 15) {
+                gamma = 1; // dynamic range isn't extreme enough to need any help
+            } else {
+                let best = 1;
+                for (let g = 1; g >= 0.15; g -= 0.02) {
+                    if (smallestBarPx(g) >= targetPx) best = g; else break;
+                }
+                gamma = Math.max(0.15, best);
+                // Compression alone couldn't get there: this usually means the real issue isn't
+                // "values far from zero vs near zero" at all (which is all a power curve can act
+                // on) — it's that the whole cascade sits in a tight band far from zero, while the
+                // axis is still forced to start at 0, wasting most of the chart on empty space no
+                // bar ever reaches. No gamma, however extreme, fixes that - only moving the floor
+                // does. Only do this when nothing in the data actually needs to show a true zero
+                // reference (domainMin0 was 0 purely by the forcing rule, not real data there).
+                if (smallestBarPx(gamma) < targetPx && domainMin0 === 0) {
+                    const realMin = Math.min(...allValues.filter(v => v !== 0));
+                    if (isFinite(realMin) && realMin > 0) {
+                        // Total bars read as "the total" precisely because they normally dwarf the
+                        // deltas - floating the floor shrinks them too (a Total spans clampToDomain(0)
+                        // up to its own value), and left unchecked it can shrink them down to looking
+                        // like just another small bar, losing that meaning entirely. Search for how far
+                        // toward realMin the floor can move without any Total dropping below the
+                        // configured minimum height, then only float that far - not all the way.
+                        const totalBars = data.filter(d => d.isTotal);
+                        const minTotalHeightFrac = Math.max(0, Math.min(100, fmt.chartOptionsCard.minTotalHeightPct.value)) / 100;
+                        const minTotalPx = minTotalHeightFrac * height;
+                        const totalBarPxAt = (candMin: number): number => {
+                            if (totalBars.length === 0) return Infinity; // nothing to protect
+                            const cMax = Math.max(candMin + 1, domainMax);
+                            const rMin = candMin, rMax = cMax; // gamma=1 for this search phase (shape doesn't matter here, only the floor's position does)
+                            const pad = (rMax - rMin) * 0.12 || 1;
+                            const ls = d3.scaleLinear().domain([rMin, rMax + pad]).range([0, height]);
+                            const clamp = (v: number) => Math.max(candMin, Math.min(cMax, v));
+                            let worst = Infinity;
+                            for (const d of totalBars) {
+                                const y1 = ls(clamp(Math.max(d.start, d.end)));
+                                const y2 = ls(clamp(Math.min(d.start, d.end)));
+                                worst = Math.min(worst, Math.abs(y1 - y2));
+                            }
+                            return worst;
+                        };
+                        let allowedMin = domainMin0;
+                        for (let f = 0; f <= 1; f += 0.02) {
+                            const candidate = domainMin0 + (realMin - domainMin0) * f;
+                            if (totalBarPxAt(candidate) >= minTotalPx) allowedMin = candidate; else break;
+                        }
+                        domainMin = allowedMin;
+                        let best2 = 1;
+                        for (let g = 1; g >= 0.15; g -= 0.02) {
+                            if (smallestBarPx(g) >= targetPx) best2 = g; else break;
+                        }
+                        gamma = Math.max(0.15, best2);
+                    }
+                }
+            }
+        } else {
+            const compression = Math.max(-300, Math.min(300, fmt.chartOptionsCard.valueCompression.value));
+            const t = compression / 100;
+            const gammaRaw = t >= 0 ? Math.exp(-t * 0.55) : Math.exp(-t * 0.42);
+            gamma = Math.max(0.15, Math.min(4, gammaRaw));
+        }
         const signedPow = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), gamma);
         const tRawMin = signedPow(domainMin);
         const tRawMax = signedPow(domainMax);
@@ -1091,10 +1188,15 @@ export class Visual implements IVisual {
                 .attr("class", "pillar-label-g")
                 .attr("transform", (d, i) => {
                     const bandCenter = (bandScale(`${i}`) as number) + bandScale.bandwidth() / 2;
-                    const isNeg = labelValue(d) < 0;
                     const farValuePx = valueScale(clampToDomain(Math.max(d.start, d.end)));
                     const nearValuePx = valueScale(clampToDomain(Math.min(d.start, d.end)));
                     const midValuePx = (valueScale(clampToDomain(d.start)) + valueScale(clampToDomain(d.end))) / 2;
+                    // A short bar sitting near the axis has no room below it for a negative-value
+                    // label without the label colliding with the category axis text - readability
+                    // wins over strict below-the-bar placement when the two conflict, so fall back
+                    // to the same above-the-bar spot the positive case uses.
+                    const belowSpaceNeeded = fontSize * 1.8 + 8;
+                    const isNeg = labelValue(d) < 0 && (isHorizontal || (height - nearValuePx) >= belowSpaceNeeded);
                     if (isHorizontal) {
                         const vx = position === "inside" ? midValuePx : isNeg ? nearValuePx - 6 : farValuePx + 6;
                         return `translate(${vx},${bandCenter})`;

@@ -86,11 +86,27 @@
                     },
                     "displayNameKey": "Prop_ChartOrientation"
                 },
+                "compressionAuto": {
+                    "displayName": "Value compression: automatic",
+                    "displayNameKey": "Prop_CompressionAuto",
+                    "type": {
+                        "bool": true
+                    }
+                },
                 "valueCompression": {
                     "type": {
                         "numeric": true
                     },
                     "displayNameKey": "Prop_ValueCompression"
+                },
+                "minTotalHeightPct": {
+                    "displayName": "Automatic: minimum total bar height (%)",
+                    "displayNameKey": "Prop_MinTotalHeightPct",
+                    "description": "When Automatic value compression floats the axis floor to make small bars visible, Total bars are never allowed to shrink below this % of the chart height. 0 = no floor; 100 = always keep the true zero baseline.",
+                    "descriptionKey": "Prop_MinTotalHeightPct_Desc",
+                    "type": {
+                        "numeric": true
+                    }
                 }
             },
             "displayNameKey": "Card_ChartOptions"
@@ -427,6 +443,36 @@
                         ]
                     },
                     "displayNameKey": "Prop_BreakdownTotalPosition"
+                },
+                "breakdownSortBy": {
+                    "displayName": "Sort by",
+                    "displayNameKey": "Prop_BreakdownSortBy",
+                    "description": "Which categories make the cut in Auto mode is always decided by impact; this only changes the display order of whichever ones are shown.",
+                    "descriptionKey": "Prop_BreakdownSortBy_Desc",
+                    "type": {
+                        "enumeration": [
+                            {
+                                "displayName": "Impact (default)",
+                                "value": "impact"
+                            },
+                            {
+                                "displayName": "Value (highest first)",
+                                "value": "valueDesc"
+                            },
+                            {
+                                "displayName": "Value (lowest first)",
+                                "value": "valueAsc"
+                            },
+                            {
+                                "displayName": "Name (A-Z)",
+                                "value": "nameAsc"
+                            },
+                            {
+                                "displayName": "Name (Z-A)",
+                                "value": "nameDesc"
+                            }
+                        ]
+                    }
                 }
             },
             "displayNameKey": "Card_Breakdown"

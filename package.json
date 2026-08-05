@@ -1,7 +1,7 @@
 {
   "name": "waterfall-bridge",
   "description": "Waterfall Bridge - configurable pillar + top-N breakdown waterfall chart",
-  "version": "1.0.0.0",
+  "version": "1.0.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/sergiopbi/WaterfallBridge.git"

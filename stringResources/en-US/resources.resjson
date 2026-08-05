@@ -5,7 +5,10 @@
 
     "Card_ChartOptions": "Chart Options",
     "Prop_ChartOrientation": "Chart Orientation",
-    "Prop_ValueCompression": "Value compression (0 = default; can go beyond \u00b1100)",
+    "Prop_CompressionAuto": "Value compression: automatic",
+    "Prop_ValueCompression": "Value compression (when not automatic)",
+    "Prop_MinTotalHeightPct": "Automatic: minimum total bar height (%)",
+    "Prop_MinTotalHeightPct_Desc": "When Automatic value compression floats the axis floor to make small bars visible, Total bars are never allowed to shrink below this % of the chart height — they should still read as \"the total\", not look the same size as a small variation. 0 = no floor (allow full floating); 100 = always keep the true zero baseline.",
 
     "Card_DataColors": "Data Colors",
     "Prop_SentimentsShow": "Format using Sentiments",
@@ -25,6 +28,8 @@
     "Prop_OthersLabel": "\"Others\" label",
     "Prop_BreakdownShowTotal": "Show total bar alongside breakdown",
     "Prop_BreakdownTotalPosition": "Total position",
+    "Prop_BreakdownSortBy": "Sort by",
+    "Prop_BreakdownSortBy_Desc": "Which categories make the cut in Auto mode is always decided by impact; this only changes the display order of whichever ones are shown.",
 
     "Card_BreakdownCategories": "Breakdown Categories",
     "Group_Categories": "Categories",
